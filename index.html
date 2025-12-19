@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magic Christmas - Final Clean</title>
+    <title>Khánh iu An</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -68,14 +68,11 @@
     
     <!-- UI Vandiep -->
     <div id="ui-layer">
-	
-	<div id="status" class="badge" style="font-size: 24px; color: gold; font-weight: bold; margin-bottom: 10px; text-shadow: 0 0 10px red;">🎄 Merry Chít Mớt An iu 🎄</div>
         <!-- Vandiep -->
         <div class="guide">
             🖐 <b>Open:</b> Explode &nbsp;|&nbsp; 🫶 <b>Heart:</b> Love &nbsp;|&nbsp; ✊ <b>Fist:</b> Tree
-
         </div>
-        <button id="btnStart" onclick="startSystem()">START MAGIC</button>
+        <button id="btnStart" onclick="startSystem()">Merry Chít Mớt An iu</button>
     </div>
 
     <!-- Vandiep -->
@@ -154,11 +151,7 @@
         let state = 'TREE'; 
         let selectedIndex = 0;
         let handX = 0.5;
-		
-		//K941997
-		let lastChangeTime = 0;   // Biến đếm thời gian
-		let isScrolling = false;  // Biến kiểm tra xem có đang được lướt hay không
-		
+
         // ==========================================
         // 3. THREE.JS SYSTEM Vandiep
         // ==========================================
@@ -418,8 +411,6 @@
             const time = Date.now() * 0.001;
             const speed = 0.08;
             const handRotY = (handX - 0.5) * 4.0;
-			
-			
 
             updateParticleGroup(groupGold, 'gold', state, speed, handRotY, time);
             updateParticleGroup(groupRed, 'red', state, speed, handRotY, time);
@@ -469,29 +460,6 @@
 
             } else if (state === 'PHOTO') {
                 loveMesh.visible = false;
-				
-				// --- LOGIC LƯỚT ẢNH (CHỈ KHI XÒE 5 NGÓN - isScrolling = true) ---
-				if (isScrolling && (time - lastChangeTime > 0.4)) { 
-					// 0.4 giây là tốc độ lướt (đủ để nhìn thấy ảnh rồi mới lướt tiếp)
-					
-					// Xòe tay và di sang TRÁI (vùng < 30% màn hình) -> Lùi về ảnh trước
-					if (handX < 0.3) {
-						selectedIndex--;
-						if (selectedIndex < 0) selectedIndex = photoFiles.length - 1; // Vòng về cuối
-						lastChangeTime = time;
-					} 
-					
-					// Xòe tay và di sang PHẢI (vùng > 70% màn hình) -> Tiến tới ảnh sau
-					else if (handX > 0.7) {
-						selectedIndex++;
-						if (selectedIndex >= photoFiles.length) selectedIndex = 0; // Vòng về đầu
-						lastChangeTime = time;
-					}
-					
-					// Nếu tay ở giữa (từ 0.3 đến 0.7) -> Ảnh đứng yên
-				}
-				// ---------------------------------------------
-				
                 photoMeshes.forEach((mesh, i) => {
                     if (i === selectedIndex) {
                         mesh.position.lerp(new THREE.Vector3(0, 0, 60), 0.1);
@@ -513,53 +481,40 @@
             const video = document.getElementsByClassName('input_video')[0];
             const canvas = document.getElementById('camera-preview');
             const ctx = canvas.getContext('2d');
-			const statusDiv = document.getElementById('status'); // Khai báo biến hiển thị chữ K941997
             
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
-			hands.onResults(results => {
+            hands.onResults(results => {
                 ctx.clearRect(0,0,100,75); ctx.drawImage(results.image, 0, 0, 100, 75);
+
+                // --- Hand Logic  ---
+                if (results.multiHandLandmarks.length === 2) {
+                    const h1 = results.multiHandLandmarks[0]; const h2 = results.multiHandLandmarks[1];
+                    const distIndex = Math.hypot(h1[8].x - h2[8].x, h1[8].y - h2[8].y);
+                    const distThumb = Math.hypot(h1[4].x - h2[4].x, h1[4].y - h2[4].y);
+                    if (distIndex < 0.15 && distThumb < 0.15) {
+                        state = 'HEART'; return;
+                    }
+                }
 
                 if(results.multiHandLandmarks.length > 0) {
                     const lm = results.multiHandLandmarks[0];
-                    handX = lm[9].x; // Lấy tọa độ lòng bàn tay (số 9) cho chuẩn xác khi xòe
-
-                    // 1. Tính độ mở bàn tay (để biết Nắm hay Xòe)
-                    const wrist = lm[0];
-                    const tips = [8,12,16,20];
-                    let openDist = 0;
-                    tips.forEach(i => openDist += Math.hypot(lm[i].x-wrist.x, lm[i].y-wrist.y));
+                    handX = lm[9].x; 
+                    const tips = [8,12,16,20]; const wrist = lm[0];
+                    let openDist = 0; tips.forEach(i => openDist += Math.hypot(lm[i].x-wrist.x, lm[i].y-wrist.y));
                     const avgDist = openDist / 4;
+                    const pinchDist = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
 
-                    // 2. Kiểm tra ngón trỏ (để xem tĩnh)
-                    const isIndexUp = lm[8].y < lm[6].y; 
-                    const isMiddleDown = lm[12].y > lm[10].y;
-                    const isPointing = isIndexUp && isMiddleDown; // Chỉ cần check trỏ lên + giữa xuống là đủ
-
-                    // --- QUYẾT ĐỊNH TRẠNG THÁI ---
-                    
-                    if (avgDist > 0.25) { 
-                        // ƯU TIÊN 1: XÒE 5 NGÓN RỘNG -> CHẾ ĐỘ LƯỚT
-                        state = 'PHOTO';
-                        isScrolling = true; // Bật lướt
-                        statusDiv.innerText = "🖐 Di Tay Sang Trái/Phải Để Lướt"; statusDiv.style.color = "#FFA500";
-                    } 
-                    else if (isPointing) {
-                        // ƯU TIÊN 2: CHỈ NGÓN TRỎ -> XEM TĨNH (KHÓA LƯỚT)
-                        state = 'PHOTO';
-                        isScrolling = false; // Tắt lướt
-                        statusDiv.innerText = "☝ Đang Xem Ảnh"; statusDiv.style.color = "#00FFFF";
-                    } 
-                    else {
-                        // CÒN LẠI: NẮM TAY -> VỀ CÂY THÔNG
+                    if (avgDist < 0.25) { 
                         state = 'TREE'; 
-                        statusDiv.innerText = "✊ Thu Cây Thông"; statusDiv.style.color = "#FFD700";
+                    } else if (pinchDist < 0.05) {
+                        state = 'PHOTO'; 
+                    } else {
+                        state = 'EXPLODE'; 
                     }
-
                 } else {
                     state = 'TREE'; 
-                    statusDiv.innerText = "🎄 Anh iu An, và Bông 🎄"; statusDiv.style.color = "#FFF";
                 }
             });
 
