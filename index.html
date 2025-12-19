@@ -411,8 +411,8 @@
             const time = Date.now() * 0.001;
             const speed = 0.08;
             const handRotY = (handX - 0.5) * 4.0;
-			//K941997:
-			let lastChangeTime = 0;
+			
+			
 
             updateParticleGroup(groupGold, 'gold', state, speed, handRotY, time);
             updateParticleGroup(groupRed, 'red', state, speed, handRotY, time);
@@ -463,13 +463,33 @@
             } else if (state === 'PHOTO') {
                 loveMesh.visible = false;
 				
-				// --- CODE MỚI: Tự động đổi ảnh mỗi 3 giây ---
-				if (time - lastChangeTime > 3.0) { // 3.0 là số giây (bạn có thể chỉnh nhanh chậm tùy ý)
-					selectedIndex = (selectedIndex + 1) % photoFiles.length; // Chuyển sang ảnh tiếp theo
-					lastChangeTime = time; // Reset thời gian
+				// --- LOGIC VÙNG AN TOÀN (DEADZONE) ---
+				// Vùng giữa màn hình (từ 0.4 đến 0.6) là vùng "nghỉ", không làm gì cả
+				const isCenter = (handX > 0.4 && handX < 0.6);
+
+				// Chỉ xử lý khi tay RA KHỎI vùng giữa và đã qua 1 giây chờ (để không bị lướt quá nhanh)
+				if (!isCenter && (time - lastChangeTime > 1.0)) {
+					
+					// Nếu tay dịch về bên TRÁI (nhỏ hơn 0.4) -> Lùi ảnh (Previous)
+					if (handX <= 0.4) {
+						selectedIndex--;
+						if (selectedIndex < 0) {
+							selectedIndex = photoFiles.length - 1; // Vòng về cuối
+						}
+						lastChangeTime = time; // Ghi lại thời gian để chờ lần lướt sau
+					} 
+					
+					// Nếu tay dịch về bên PHẢI (lớn hơn 0.6) -> Tiến ảnh (Next)
+					else if (handX >= 0.6) {
+						selectedIndex++;
+						if (selectedIndex >= photoFiles.length) {
+							selectedIndex = 0; // Vòng về đầu
+						}
+						lastChangeTime = time;
+					}
 				}
-				// ---------------------------------------------
-		
+				// --------------------------------------
+				
                 photoMeshes.forEach((mesh, i) => {
                     if (i === selectedIndex) {
                         mesh.position.lerp(new THREE.Vector3(0, 0, 60), 0.1);
