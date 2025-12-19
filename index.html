@@ -42,11 +42,9 @@
         /* Camera Preview Vandiep */
         #camera-preview {
 			position: absolute; top: 15px; right: 15px;
-			/* Tăng kích thước lên gấp 3 lần để nhìn cho rõ */
-			width: 360px; height: 270px; 
-			border: 2px solid rgba(255,215,0, 0.8); /* Viền vàng cho nổi */
-			transform: scaleX(-1); opacity: 0.8; border-radius: 12px;
-			z-index: 999; /* Đảm bảo luôn nằm trên cùng */
+			width: 120px; height: 90px; /* Bé quá */
+			border: 2px solid rgba(255,0,0,0.5); 
+			transform: scaleX(-1); opacity: 0.6; border-radius: 8px;
         }
         
         /* Vandiep */
@@ -153,6 +151,9 @@
         let state = 'TREE'; 
         let selectedIndex = 0;
         let handX = 0.5;
+		
+		//K941997
+		let worldRotation = 0; // <--- THÊM DÒNG NÀY (biến lưu góc quay hiện tại)
 
         // ==========================================
         // 3. THREE.JS SYSTEM Vandiep
@@ -412,7 +413,21 @@
             requestAnimationFrame(animate);
             const time = Date.now() * 0.001;
             const speed = 0.08;
-            const handRotY = (handX - 0.5) * 4.0;
+
+            // --- ĐOẠN SỬA ĐỔI: Logic lướt ảnh liên tục ---
+            // Nếu tay ở giữa (0.5) -> Tốc độ = 0
+            // Tay sang trái/phải -> Tăng/Giảm góc quay (tạo hiệu ứng trôi)
+            // Số 0.05 là độ nhạy, bạn có thể chỉnh lên 0.1 nếu muốn lướt nhanh hơn
+            if (state === 'EXPLODE' || state === 'PHOTO') {
+                worldRotation += (handX - 0.5) * 0.08; 
+            } else {
+                // Khi về dạng Cây hoặc Tim, tự động xoay nhẹ cho đẹp
+                worldRotation += 0.002;
+            }
+            
+            // Gán giá trị góc quay mới vào biến cũ để hệ thống xử lý
+            const handRotY = worldRotation; 
+            // ----------------------------------------------
 
             updateParticleGroup(groupGold, 'gold', state, speed, handRotY, time);
             updateParticleGroup(groupRed, 'red', state, speed, handRotY, time);
@@ -439,18 +454,28 @@
 
             } else if (state === 'EXPLODE') {
                 titleMesh.visible = false; starMesh.visible = false; loveMesh.visible = false;
+                
+                // Sử dụng worldRotation làm góc gốc để các ảnh xoay theo
                 const baseAngle = groupGold.rotation.y; 
                 const angleStep = (Math.PI * 2) / 5;
+                
                 let bestIdx = 0; let maxZ = -999;
+                
                 photoMeshes.forEach((mesh, i) => {
                     mesh.visible = true;
-                    const angle = baseAngle + i * angleStep;
+                    // Cộng thêm baseAngle để ảnh xoay cùng hạt
+                    const angle = baseAngle + i * angleStep; 
+                    
                     const x = Math.sin(angle) * CONFIG.photoOrbitRadius;
                     const z = Math.cos(angle) * CONFIG.photoOrbitRadius;
                     const y = Math.sin(time + i) * 3; 
+                    
                     mesh.position.lerp(new THREE.Vector3(x, y, z), 0.1);
                     mesh.lookAt(camera.position);
+                    
+                    // Logic chọn ảnh gần nhất (để zoom khi giơ ngón trỏ)
                     if (z > maxZ) { maxZ = z; bestIdx = i; }
+                    
                     if (z > 5) { 
                         const ds = 1.0 + (z/CONFIG.photoOrbitRadius)*0.8; 
                         mesh.scale.lerp(new THREE.Vector3(ds, ds, ds), 0.1);
@@ -464,10 +489,12 @@
                 loveMesh.visible = false;
                 photoMeshes.forEach((mesh, i) => {
                     if (i === selectedIndex) {
+                        // Zoom ảnh được chọn
                         mesh.position.lerp(new THREE.Vector3(0, 0, 60), 0.1);
                         mesh.scale.lerp(new THREE.Vector3(5, 5, 5), 0.1);
                         mesh.lookAt(camera.position); mesh.rotation.z = 0;
                     } else {
+                        // Thu nhỏ các ảnh khác
                         mesh.scale.lerp(new THREE.Vector3(0,0,0), 0.1);
                     }
                 });
@@ -483,12 +510,22 @@
             const video = document.getElementsByClassName('input_video')[0];
             const canvas = document.getElementById('camera-preview');
             const ctx = canvas.getContext('2d');
+			
+			// K941997 --- THÊM 2 DÒNG NÀY ---
+            // Đặt độ phân giải nội tại cho canvas (nên là tỉ lệ 4:3 cho đẹp)
+            canvas.width = 640; 
+            canvas.height = 480;
+            // -----------------------
             
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
             hands.onResults(results => {
-                ctx.clearRect(0,0,100,75); ctx.drawImage(results.image, 0, 0, 100, 75);
+                //ctx.clearRect(0,0,100,75); ctx.drawImage(results.image, 0, 0, 100, 75);
+				//K941997
+				// Xóa toàn bộ canvas và vẽ ảnh tràn khung
+				ctx.clearRect(0, 0, canvas.width, canvas.height); 
+				ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
                 // --- Hand Logic  ---
                 if (results.multiHandLandmarks.length === 2) {
