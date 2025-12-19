@@ -156,7 +156,8 @@
         let handX = 0.5;
 		
 		//K941997
-		let lastChangeTime = 0; // Bắt buộc phải có dòng này
+		let lastChangeTime = 0;   // Biến đếm thời gian
+		let isScrolling = false;  // Biến kiểm tra xem có đang được lướt hay không
 		
         // ==========================================
         // 3. THREE.JS SYSTEM Vandiep
@@ -469,26 +470,27 @@
             } else if (state === 'PHOTO') {
                 loveMesh.visible = false;
 				
-				// --- LOGIC LƯỚT LIÊN TỤC ---
-				// Thời gian chờ giảm xuống 0.25 giây để lướt nhanh hơn
-				if (time - lastChangeTime > 0.25) { 
+				// --- LOGIC LƯỚT ẢNH (CHỈ KHI XÒE 5 NGÓN - isScrolling = true) ---
+				if (isScrolling && (time - lastChangeTime > 0.4)) { 
+					// 0.4 giây là tốc độ lướt (đủ để nhìn thấy ảnh rồi mới lướt tiếp)
 					
-					// Nếu ngón trỏ chỉ sang TRÁI (vùng < 0.3)
+					// Xòe tay và di sang TRÁI (vùng < 30% màn hình) -> Lùi về ảnh trước
 					if (handX < 0.3) {
 						selectedIndex--;
-						if (selectedIndex < 0) selectedIndex = photoFiles.length - 1;
+						if (selectedIndex < 0) selectedIndex = photoFiles.length - 1; // Vòng về cuối
 						lastChangeTime = time;
 					} 
 					
-					// Nếu ngón trỏ chỉ sang PHẢI (vùng > 0.7)
+					// Xòe tay và di sang PHẢI (vùng > 70% màn hình) -> Tiến tới ảnh sau
 					else if (handX > 0.7) {
 						selectedIndex++;
-						if (selectedIndex >= photoFiles.length) selectedIndex = 0;
+						if (selectedIndex >= photoFiles.length) selectedIndex = 0; // Vòng về đầu
 						lastChangeTime = time;
 					}
-					// Nếu để tay ở giữa (0.3 - 0.7) thì ảnh đứng yên
+					
+					// Nếu tay ở giữa (từ 0.3 đến 0.7) -> Ảnh đứng yên
 				}
-				// -----------------------------
+				// ---------------------------------------------
 				
                 photoMeshes.forEach((mesh, i) => {
                     if (i === selectedIndex) {
@@ -516,82 +518,48 @@
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
 
-            hands.onResults(results => {
+			hands.onResults(results => {
                 ctx.clearRect(0,0,100,75); ctx.drawImage(results.image, 0, 0, 100, 75);
-				
-				
-
-                // --- Hand Logic  ---
-				/*
-                if (results.multiHandLandmarks.length === 2) {
-                    const h1 = results.multiHandLandmarks[0]; const h2 = results.multiHandLandmarks[1];
-                    const distIndex = Math.hypot(h1[8].x - h2[8].x, h1[8].y - h2[8].y);
-                    const distThumb = Math.hypot(h1[4].x - h2[4].x, h1[4].y - h2[4].y);
-                    if (distIndex < 0.15 && distThumb < 0.15) {
-                        state = 'HEART'; return;
-                    }
-                }
-				*/
 
                 if(results.multiHandLandmarks.length > 0) {
                     const lm = results.multiHandLandmarks[0];
-					
-					
-					
-                    /* handX = lm[9].x; 
-                    const tips = [8,12,16,20]; const wrist = lm[0];
-                    let openDist = 0; tips.forEach(i => openDist += Math.hypot(lm[i].x-wrist.x, lm[i].y-wrist.y));
-                    const avgDist = openDist / 4;
-                    const pinchDist = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
+                    handX = lm[9].x; // Lấy tọa độ lòng bàn tay (số 9) cho chuẩn xác khi xòe
 
-                    if (avgDist < 0.25) { 
-                        state = 'TREE'; 
-                    } else if (pinchDist < 0.05) {
-                        state = 'PHOTO'; 
-                    } else {
-                        state = 'EXPLODE'; 
-                    }
-					*/
-					
-					
-					//K941997:
-					// Lấy tọa độ đầu ngón trỏ (số 8) làm mốc điều khiển
-                    handX = lm[8].x; 
-					
-					
-
-                    // --- LOGIC NHẬN DIỆN NGÓN TAY ---
+                    // 1. Tính độ mở bàn tay (để biết Nắm hay Xòe)
                     const wrist = lm[0];
                     const tips = [8,12,16,20];
-                    let openDist = 0; // Tính độ mở bàn tay
+                    let openDist = 0;
                     tips.forEach(i => openDist += Math.hypot(lm[i].x-wrist.x, lm[i].y-wrist.y));
                     const avgDist = openDist / 4;
 
-                    // Kiểm tra cử chỉ "Chỉ ngón trỏ": 
-                    // Ngón trỏ (8) cao hơn khớp của nó (6), các ngón khác (12,16,20) thấp hơn khớp tương ứng
+                    // 2. Kiểm tra ngón trỏ (để xem tĩnh)
                     const isIndexUp = lm[8].y < lm[6].y; 
                     const isMiddleDown = lm[12].y > lm[10].y;
-                    const isRingDown = lm[16].y > lm[14].y;
-                    const isPinkyDown = lm[20].y > lm[18].y;
-                    const isPointing = isIndexUp && isMiddleDown && isRingDown && isPinkyDown;
+                    const isPointing = isIndexUp && isMiddleDown; // Chỉ cần check trỏ lên + giữa xuống là đủ
 
                     // --- QUYẾT ĐỊNH TRẠNG THÁI ---
-                    if (isPointing) {
-                        state = 'PHOTO'; // Chỉ ngón trỏ -> Vào chế độ xem ảnh
-                        statusDiv.innerText = "☝ Đang Lướt Ảnh"; statusDiv.style.color = "#00FFFF";
+                    
+                    if (avgDist > 0.25) { 
+                        // ƯU TIÊN 1: XÒE 5 NGÓN RỘNG -> CHẾ ĐỘ LƯỚT
+                        state = 'PHOTO';
+                        isScrolling = true; // Bật lướt
+                        statusDiv.innerText = "🖐 Di Tay Trái/Phải Để Lướt"; statusDiv.style.color = "#FFA500";
                     } 
-                    else if (avgDist < 0.25) { 
-                        state = 'TREE'; 
-                        statusDiv.innerText = "✊ Thu Cây Thông"; statusDiv.style.color = "#FFD700";
+                    else if (isPointing) {
+                        // ƯU TIÊN 2: CHỈ NGÓN TRỎ -> XEM TĨNH (KHÓA LƯỚT)
+                        state = 'PHOTO';
+                        isScrolling = false; // Tắt lướt
+                        statusDiv.innerText = "☝ Đang Xem Ảnh"; statusDiv.style.color = "#00FFFF";
                     } 
                     else {
-                        state = 'EXPLODE'; 
-                        statusDiv.innerText = "🖐 Bung Quà"; statusDiv.style.color = "#FFA500";
+                        // CÒN LẠI: NẮM TAY -> VỀ CÂY THÔNG
+                        state = 'TREE'; 
+                        statusDiv.innerText = "✊ Thu Cây Thông"; statusDiv.style.color = "#FFD700";
                     }
-					
+
                 } else {
                     state = 'TREE'; 
-					statusDiv.innerText = "🎄 Giang Sinh An Lanh 🎄"; statusDiv.style.color = "#FFF";
+                    statusDiv.innerText = "🎄 Giang Sinh An Lanh 🎄"; statusDiv.style.color = "#FFF";
                 }
             });
 
