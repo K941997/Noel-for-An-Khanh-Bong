@@ -463,32 +463,26 @@
             } else if (state === 'PHOTO') {
                 loveMesh.visible = false;
 				
-				// --- LOGIC VÙNG AN TOÀN (DEADZONE) ---
-				// Vùng giữa màn hình (từ 0.4 đến 0.6) là vùng "nghỉ", không làm gì cả
-				const isCenter = (handX > 0.4 && handX < 0.6);
-
-				// Chỉ xử lý khi tay RA KHỎI vùng giữa và đã qua 1 giây chờ (để không bị lướt quá nhanh)
-				if (!isCenter && (time - lastChangeTime > 1.0)) {
+				// --- LOGIC LƯỚT LIÊN TỤC ---
+				// Thời gian chờ giảm xuống 0.25 giây để lướt nhanh hơn
+				if (time - lastChangeTime > 0.25) { 
 					
-					// Nếu tay dịch về bên TRÁI (nhỏ hơn 0.4) -> Lùi ảnh (Previous)
-					if (handX <= 0.4) {
+					// Nếu ngón trỏ chỉ sang TRÁI (vùng < 0.3)
+					if (handX < 0.3) {
 						selectedIndex--;
-						if (selectedIndex < 0) {
-							selectedIndex = photoFiles.length - 1; // Vòng về cuối
-						}
-						lastChangeTime = time; // Ghi lại thời gian để chờ lần lướt sau
+						if (selectedIndex < 0) selectedIndex = photoFiles.length - 1;
+						lastChangeTime = time;
 					} 
 					
-					// Nếu tay dịch về bên PHẢI (lớn hơn 0.6) -> Tiến ảnh (Next)
-					else if (handX >= 0.6) {
+					// Nếu ngón trỏ chỉ sang PHẢI (vùng > 0.7)
+					else if (handX > 0.7) {
 						selectedIndex++;
-						if (selectedIndex >= photoFiles.length) {
-							selectedIndex = 0; // Vòng về đầu
-						}
+						if (selectedIndex >= photoFiles.length) selectedIndex = 0;
 						lastChangeTime = time;
 					}
+					// Nếu để tay ở giữa (0.3 - 0.7) thì ảnh đứng yên
 				}
-				// --------------------------------------
+				// -----------------------------
 				
                 photoMeshes.forEach((mesh, i) => {
                     if (i === selectedIndex) {
@@ -517,6 +511,8 @@
 
             hands.onResults(results => {
                 ctx.clearRect(0,0,100,75); ctx.drawImage(results.image, 0, 0, 100, 75);
+				
+				
 
                 // --- Hand Logic  ---
                 if (results.multiHandLandmarks.length === 2) {
@@ -530,7 +526,10 @@
 
                 if(results.multiHandLandmarks.length > 0) {
                     const lm = results.multiHandLandmarks[0];
-                    handX = lm[9].x; 
+					
+					
+					
+                    /* handX = lm[9].x; 
                     const tips = [8,12,16,20]; const wrist = lm[0];
                     let openDist = 0; tips.forEach(i => openDist += Math.hypot(lm[i].x-wrist.x, lm[i].y-wrist.y));
                     const avgDist = openDist / 4;
@@ -543,8 +542,45 @@
                     } else {
                         state = 'EXPLODE'; 
                     }
+					*/
+					
+					
+					//K941997:
+					// Lấy tọa độ đầu ngón trỏ (số 8) làm mốc điều khiển
+                    handX = lm[8].x; 
+
+                    // --- LOGIC NHẬN DIỆN NGÓN TAY ---
+                    const wrist = lm[0];
+                    const tips = [8,12,16,20];
+                    let openDist = 0; // Tính độ mở bàn tay
+                    tips.forEach(i => openDist += Math.hypot(lm[i].x-wrist.x, lm[i].y-wrist.y));
+                    const avgDist = openDist / 4;
+
+                    // Kiểm tra cử chỉ "Chỉ ngón trỏ": 
+                    // Ngón trỏ (8) cao hơn khớp của nó (6), các ngón khác (12,16,20) thấp hơn khớp tương ứng
+                    const isIndexUp = lm[8].y < lm[6].y; 
+                    const isMiddleDown = lm[12].y > lm[10].y;
+                    const isRingDown = lm[16].y > lm[14].y;
+                    const isPinkyDown = lm[20].y > lm[18].y;
+                    const isPointing = isIndexUp && isMiddleDown && isRingDown && isPinkyDown;
+
+                    // --- QUYẾT ĐỊNH TRẠNG THÁI ---
+                    if (isPointing) {
+                        state = 'PHOTO'; // Chỉ ngón trỏ -> Vào chế độ xem ảnh
+                        statusDiv.innerText = "☝ Đang Lướt Ảnh"; statusDiv.style.color = "#00FFFF";
+                    } 
+                    else if (avgDist < 0.25) { 
+                        state = 'TREE'; 
+                        statusDiv.innerText = "✊ Thu Cây Thông"; statusDiv.style.color = "#FFD700";
+                    } 
+                    else {
+                        state = 'EXPLODE'; 
+                        statusDiv.innerText = "🖐 Bung Quà"; statusDiv.style.color = "#FFA500";
+                    }
+					
                 } else {
                     state = 'TREE'; 
+					statusDiv.innerText = "🎄 Giang Sinh An Lanh 🎄"; statusDiv.style.color = "#FFF";
                 }
             });
 
