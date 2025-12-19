@@ -72,7 +72,7 @@
         <div class="guide">
             🖐 <b>Open:</b> Explode &nbsp;|&nbsp; 🫶 <b>Heart:</b> Love &nbsp;|&nbsp; ✊ <b>Fist:</b> Tree
         </div>
-        <button id="btnStart" onclick="startSystem()">Click Here</button>
+        <button id="btnStart" onclick="startSystem()">An click here</button>
     </div>
 
     <!-- Vandiep -->
@@ -91,7 +91,17 @@
         bgMusic.loop = true; bgMusic.volume = 1.0;
 
         const loader = new THREE.TextureLoader();
-        const photoFiles = ['./image1.jpeg', './image2.jpeg', './image3.jpeg', './image4.jpeg', './image5.jpeg'];
+        const photoFiles = [
+			'./image1.jpeg', 
+			'./image2.jpeg', 
+			'./image3.jpeg', 
+			'./image4.jpeg', 
+			'./image5.jpeg', 
+			'./image6.jpeg', 
+			'./image7.jpeg', 
+			'./image8.jpeg', 
+			'./image9.jpeg', 
+			'./image10.jpeg'];
         const photoTextures = [];
         photoFiles.forEach((f, i) => photoTextures[i] = loader.load(f));
 
@@ -138,7 +148,7 @@
             redCount: 300,
             giftCount: 150,
             explodeRadius: 65,  
-            photoOrbitRadius: 25,
+            photoOrbitRadius: 45,
             treeHeight: 70,
             treeBaseRadius: 35
         };
@@ -273,7 +283,7 @@
             const borderGeo = new THREE.PlaneGeometry(9, 9); 
             const borderMat = new THREE.MeshBasicMaterial({ color: 0xFFD700 }); 
 
-            for(let i=0; i<5; i++) {
+            for(let i=0; i < photoFiles.length; i++) {
                 const mat = new THREE.MeshBasicMaterial({ map: photoTextures[i], side: THREE.DoubleSide });
                 const mesh = new THREE.Mesh(geo, mat);
                 const border = new THREE.Mesh(borderGeo, borderMat);
@@ -457,7 +467,7 @@
                 
                 // Sử dụng worldRotation làm góc gốc để các ảnh xoay theo
                 const baseAngle = groupGold.rotation.y; 
-                const angleStep = (Math.PI * 2) / 5;
+                const angleStep = (Math.PI * 2) / photoFiles.length;
                 
                 let bestIdx = 0; let maxZ = -999;
                 
