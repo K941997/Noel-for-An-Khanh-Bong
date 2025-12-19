@@ -68,6 +68,8 @@
     
     <!-- UI Vandiep -->
     <div id="ui-layer">
+	
+	<div id="status" class="badge" style="font-size: 24px; color: gold; font-weight: bold; margin-bottom: 10px; text-shadow: 0 0 10px red;">🎄 Giang Sinh An Lanh 🎄</div>
         <!-- Vandiep -->
         <div class="guide">
             🖐 <b>Open:</b> Explode &nbsp;|&nbsp; 🫶 <b>Heart:</b> Love &nbsp;|&nbsp; ✊ <b>Fist:</b> Tree
@@ -151,7 +153,10 @@
         let state = 'TREE'; 
         let selectedIndex = 0;
         let handX = 0.5;
-
+		
+		//K941997
+		let lastChangeTime = 0; // Bắt buộc phải có dòng này
+		
         // ==========================================
         // 3. THREE.JS SYSTEM Vandiep
         // ==========================================
@@ -505,6 +510,7 @@
             const video = document.getElementsByClassName('input_video')[0];
             const canvas = document.getElementById('camera-preview');
             const ctx = canvas.getContext('2d');
+			const statusDiv = document.getElementById('status'); // Khai báo biến hiển thị chữ K941997
             
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
